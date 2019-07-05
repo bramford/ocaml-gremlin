@@ -101,4 +101,47 @@ module Websocket = struct
       | json -> Response_invalid (Invalid_request_id_json_type json)
       end
     | _ as status -> status
+
+  let create_gremlin_query_request_response op_processor query =
+    let request_id = Uuid_unix.create () |> Uuid.to_string in
+    let open Yojson.Basic in
+
+    let request_payload : Yojson.Basic.t =
+      let request_id = ("requestId", `String (request_id)) in
+      let op = ("op", `String "eval") in
+      let processor = match op_processor with
+      | Standard -> ("processor", `String "")
+      | Session _ -> ("processor", `String "session")
+      in
+      let args =
+        [
+          ("gremlin", `String query);
+          ("language", `String "gremlin-groovy");
+        ]
+      in
+      let args = match op_processor with
+      | Session s -> ("session", `String s) :: args
+      | Standard -> args
+      in
+      `Assoc [
+        request_id;
+        op;
+        processor;
+        ( "args", `Assoc args );
+      ]
+    in
+
+    let response_handler msg  =
+      let message =
+        try Good (Yojson.Basic.from_string msg) with
+        | Finally _ -> Response_invalid Json_parse_failure
+        | _ -> Response_invalid Unknown_json_parse_failure
+      in
+      let message = check_fields message in
+      let message = check_request_id request_id message in
+      let message = check_result message in
+      let message = check_status message in
+      message
+    in
+    (request_payload, response_handler)
 end
