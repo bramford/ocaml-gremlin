@@ -144,4 +144,44 @@ module Websocket = struct
       message
     in
     (request_payload, response_handler)
+
+  let rec stream_receiver (stream : Websocket.Frame.t Lwt_stream.t) f send =
+    let open Websocket.Frame in
+    match%lwt Lwt_stream.peek stream with
+    | None ->
+      let%lwt () = Lwt_io.printf "No frame from peek\n%!" in
+      stream_receiver stream f send
+    | Some fr ->
+      let%lwt () = Lwt_io.printf "Got frame from peek\n%!" in
+      begin match fr.opcode with
+        | Opcode.Text
+        | Opcode.Binary ->
+          let%lwt () = Lwt_io.printf "Binary or text from peek\n%!" in
+          begin match f fr.content with
+            | Good _
+            | Response_invalid _
+            | Request_failed _ ->
+              begin match%lwt Lwt_stream.get stream with
+                | Some fr ->
+                let%lwt () = Lwt_io.printf "Got frame from get\n%!" in
+                  begin match fr.opcode with
+                    | Opcode.Text
+                    | Opcode.Binary ->
+                      let%lwt () = Lwt_io.printf "Binary or text from get\n%!" in
+                      begin match f fr.content with
+                        | Good j ->
+                          let%lwt () = Lwt_io.printf "Processed frame\n%s\n%!" (Yojson.Basic.pretty_to_string j) in
+                          Lwt.return (Ok j)
+                        | _ as e -> Lwt.return (Error e)
+                      end
+                    | _ -> stream_receiver stream f send
+                  end
+                | None ->
+                  let%lwt () = Lwt_io.printf "No frame from get\n%!" in
+                  stream_receiver stream f send
+              end
+            |  _ -> stream_receiver stream f send
+          end
+        | _ -> stream_receiver stream f send
+      end
 end
