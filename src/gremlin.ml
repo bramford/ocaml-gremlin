@@ -184,4 +184,11 @@ module Websocket = struct
           end
         | _ -> stream_receiver stream f send
       end
+
+  let run_query conn query =
+    let%lwt recv, send = conn in
+    let in_stream = Websocket_lwt_unix.mk_frame_stream recv in
+    let req, resp = create_gremlin_query_request_response Standard query in
+    let%lwt () = send @@ Websocket.Frame.create ~content:(req |> Yojson.Basic.to_string) () in
+    stream_receiver in_stream resp send
 end
