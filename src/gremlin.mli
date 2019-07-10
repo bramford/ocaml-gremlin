@@ -25,4 +25,7 @@ module Websocket : sig
   val run_query :
     ((unit -> Websocket.Frame.t Lwt.t) * (Websocket.Frame.t -> unit Lwt.t))
     Lwt.t -> string -> (Yojson.Basic.t, message_status) result Lwt.t
+  val run_queries_transaction :
+    ((unit -> Websocket.Frame.t Lwt.t) * (Websocket.Frame.t -> unit Lwt.t))
+    Lwt.t -> string list -> (Yojson.Basic.t, message_status) result Lwt.t
 end

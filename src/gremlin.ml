@@ -191,4 +191,61 @@ module Websocket = struct
     let req, resp = create_gremlin_query_request_response Standard query in
     let%lwt () = send @@ Websocket.Frame.create ~content:(req |> Yojson.Basic.to_string) () in
     stream_receiver in_stream resp send
+
+  let run_queries_transaction conn queries =
+    let%lwt recv, send = conn in
+    (* generate session id (UUID) *)
+    let session = Uuid_unix.create () |> Uuid.to_string in
+    (* Create request payload and response handler *)
+    let in_stream = Websocket_lwt_unix.mk_frame_stream recv in
+
+    let execute_queries () =
+      let reqs_and_handlers =
+        List.map
+          (create_gremlin_query_request_response (Session session))
+          queries
+      in
+
+      Lwt_list.map_s
+      (fun (req, resp) ->
+        let req_s = req |> Yojson.Basic.to_string in
+        let%lwt () = Lwt_io.printf "Sending request\n%s\n%!" req_s in
+        let%lwt () = send @@ Websocket.Frame.create ~content:req_s () in
+        let%lwt () = Lwt_io.printf "Reading response from stream\n%!" in
+        stream_receiver in_stream resp send
+      )
+      reqs_and_handlers
+    in
+
+    let tx_commit = "g.tx().commit()" in
+    let commit_transaction () =
+      let%lwt () = Lwt_io.printf "Committing transaction\n%!" in
+      let req, resp = create_gremlin_query_request_response (Session session) tx_commit in
+      let%lwt () = send @@ Websocket.Frame.create ~content:(req |> Yojson.Basic.to_string) () in
+      stream_receiver in_stream resp send
+    in
+
+    let%lwt e = execute_queries () in
+    let first_failure =
+        List.find_opt
+          (fun i ->
+            CCResult.is_error i
+          )
+          e
+    in
+
+    match first_failure with
+    | Some e ->
+      let%lwt () = Lwt_io.printf "At least one query failed.\n%!" in
+      Lwt.return e
+    | None ->
+      begin match%lwt commit_transaction () with
+        | Ok _ as ok ->
+          let%lwt () = Lwt_io.printf "Transaction succeeded\n%!" in
+          Lwt.return ok
+        | Error _ as e ->
+          let%lwt () = Lwt_io.printf "Transaction commit failed\n%!" in
+          Lwt.return e
+      end
+
 end
