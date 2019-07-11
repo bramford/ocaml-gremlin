@@ -145,6 +145,26 @@ module Websocket = struct
     in
     (request_payload, response_handler)
 
+  let print_message_status = function
+    | Response_invalid r -> begin match r with
+      | No_status_field -> Printf.printf "ERROR: Response_invalid: No_status_field%!"
+      | Missing_status_fields -> Printf.printf "ERROR: Response_invalid: Missing_status_fields%!"
+      | Missing_fields -> Printf.printf "ERROR: Response_invalid: Missing_fields%!"
+      | Missing_field s -> Printf.printf "ERROR: Response_invalid: Missing_field %s\n%!" s
+      | Invalid_status_json_type j -> Printf.printf "ERROR: Response_invalid: Invalid_status_json_type %s\n%!" (Yojson.Basic.pretty_to_string j)
+      | Invalid_result_json_type j -> Printf.printf "ERROR: Response_invalid: Invalid_result_json_type %s\n%!" (Yojson.Basic.pretty_to_string j)
+      | Invalid_result_field -> Printf.printf "ERROR: Response_invalid: Invalid_result_field%!"
+      | Invalid_request_id_json_type j ->  Printf.printf "ERROR: Response_invalid: Invalid_result_json_type %s\n%!" (Yojson.Basic.pretty_to_string j)
+      | Result_fields_wrong -> Printf.printf "ERROR: Response_invalid: Result_fields_wrong%!"
+      | Json_parse_failure -> Printf.printf "ERROR: Response_invalid: Json_parse_failure%!"
+      | Unknown_json_parse_failure -> Printf.printf "ERROR: Response_invalid: Unknown_json_parse_failure%!"
+    end
+    | Request_failed r -> begin match r with
+      | Non_200_status_code j -> Printf.printf "ERROR: Request_failed: Non_200_status_code\n%s\n%!" (Yojson.Basic.pretty_to_string j)
+      end
+    | Unmatched_request_id -> Printf.printf "ERROR: Unmatched_request_id%!"
+    | Good j -> Printf.printf "SUCCESS\n%s\n%!" (Yojson.Basic.pretty_to_string j)
+
   let rec stream_receiver (stream : Websocket.Frame.t Lwt_stream.t) f send =
     let open Websocket.Frame in
     match%lwt Lwt_stream.peek stream with

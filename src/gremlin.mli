@@ -22,6 +22,7 @@ module Websocket : sig
     | Result_fields_wrong
     | Json_parse_failure
     | Unknown_json_parse_failure
+  val print_message_status : message_status -> unit
   val run_query :
     ((unit -> Websocket.Frame.t Lwt.t) * (Websocket.Frame.t -> unit Lwt.t))
     Lwt.t -> string -> (Yojson.Basic.t, message_status) result Lwt.t
