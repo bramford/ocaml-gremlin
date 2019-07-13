@@ -79,7 +79,7 @@ module Websocket = struct
             with
             | `Int i ->
               begin match i with
-                | 200 -> message
+                | 200 | 204  -> message
                 | _ -> Request_failed (Non_200_status_code (Yojson.Basic.Util.member "status" m))
               end
             | json -> Response_invalid (Invalid_status_json_type json)
